@@ -4,11 +4,7 @@ coord_id=$1
 user=`whoami`
 
 if [[ "$coord_id" == "" ]]; then
-<<<<<<< HEAD
     coord_ids=`oozieclient.pl -r share/oozie/app.yaml jobs -jobtype coord -filter user=$user\;status=RUNNING\;status=RUNNINGWITHERROR | grep yamp- | grep -v Matched | awk '{print $16}'` 
-=======
-    coord_ids=`oozieclient.pl -r share/oozie/app.yaml jobs -jobtype coord -filter user=$user\;status=RUNNING | grep "RUNNING" | awk '{print $16}'` 
->>>>>>> 1c9a3f5b8c90edaf910bfaa4184584150379ef96
     for coord_id in $coord_ids; do
         oozieclient.pl -r share/oozie/app.yaml job -kill $coord_id -y 
     done
