@@ -1,0 +1,27 @@
+{ "allTenantURs" : { "0" : { "activities" : { "partitions" : {  } },
+          "features" : { "partitions" : {  } },
+          "properties" : { "partitions" : { "0" : { "experiments" : { "0" : { "exStore" : { "ENTITY" : { "content" : "NKJ4EQq06Q--",
+                                      "type" : "java.lang.String"
+                                    } } } },
+                      "partitionID" : "0"
+                    } } },
+          "scores" : { "partitions" : {  } },
+          "tenantID" : "0"
+        },
+      "foo-tenant" : { "activities" : { "partitions" : {  } },
+          "features" : { "partitions" : { "Restaurants" : { "experiments" : { "foo-experiment" : { "exStore" : { "OliveGarden" : { "content" : 3,
+                                      "type" : "java.lang.Long"
+                                    } } } },
+                      "partitionID" : "Restaurants"
+                    } } },
+          "properties" : { "partitions" : {  } },
+          "scores" : { "partitions" : { "Restaurants" : { "experiments" : { "foo-experiment" : { "exStore" : { "LikesOliveGarden" : { "content" : 1,
+                                      "type" : "java.lang.Long"
+                                    } } } },
+                      "partitionID" : "Restaurants"
+                    } } },
+          "tenantID" : "foo-tenant"
+        }
+    },
+  "cookieBucket" : null
+}

@@ -1,0 +1,10 @@
+#!/usr/local/bin/bash
+
+coord_name=$1
+
+if [[ "$coord_name" == "" ]]; then
+    oozieclient.pl -r share/oozie/app.yaml job -submit -y
+else
+    oozieclient.pl -r share/oozie/app.yaml job -submit -n $coord_name -y
+fi
+

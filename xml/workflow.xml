@@ -1,0 +1,630 @@
+<workflow-app xmlns='uri:oozie:workflow:0.3' name='slingstone-upp-wf'>
+	<credentials>
+		<credential name="hbase.cert" type="hbase">
+		</credential>
+	</credentials>
+	<start to="starting" />
+	<fork name="starting">
+		<path start="check-prob-gen" />
+		<path start="setProperty" />
+	</fork>
+
+	<action name="setProperty">
+		<java>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<configuration>
+				<property>
+					<name>dfs.umaskmode</name>
+					<value>022</value>
+				</property>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+			</configuration>
+			<main-class>com.yahoo.slingstone.userprofile.common.util.CommandRunner
+			</main-class>
+			<arg>setProperty</arg>
+			<arg>activity_input</arg>
+			<arg>com.yahoo.miners.btmp.slingshotgrid.processing.fe.ABF1Mapper</arg>
+			<arg>com.yahoo.ccdi.fetl.sequence.mapred.SequenceProjectorFormat</arg>
+			<arg>${ACTInput}</arg>
+			<arg>${ACTInput2}</arg>
+			<capture-output />
+		</java>
+		<ok to="working" />
+		<error to="email-fail" />
+	</action>
+
+	<join name="done" to="check-success"></join>
+
+	<decision name='check-success'>
+		<switch>
+			<case to="check-urgen-success">
+				${fs:exists( concat(wf:conf('Prob_Output'), "/_SUCCESS") ) == "true"}
+			</case>
+			<default to="email-fail" />
+		</switch>
+	</decision>
+
+	<decision name='check-urgen-success'>
+		<switch>
+			<case to="email-success">
+				${fs:exists( concat(wf:conf('UROutput'), "/_SUCCESS") ) == "true"}
+			</case>
+			<default to="email-fail" />
+		</switch>
+	</decision>
+
+	<decision name='check-prob-gen'>
+		<switch>
+			<case to="done">
+				${fs:exists( concat(wf:conf('Prob_Output'), "/_SUCCESS") ) == "true"}
+			</case>
+			<default to="gen-prob" />
+		</switch>
+	</decision>
+
+	<action name='gen-prob'>
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${Prob_Output}" />
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.user.classpath.first</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.user.classpath.first</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>dfs.umaskmode</name>
+					<value>022</value>
+				</property>
+				<property>
+					<name>dfs.replication</name>
+					<value>20</value>
+				</property>
+			</configuration>
+			<script>${appDir}/pig/feature_click_prob_gen.pig</script>
+			<param>tenant=${TenantId}</param>
+			<param>experiment=${ExperimentId}</param>
+			<param>partition=${PartitionId}</param>
+			<param>key=${ModelParamKey}</param>
+			<param>parallel=${Parallel}</param>
+			<param>input=${URInput}/text*</param>
+			<param>output=${Prob_Output}</param>
+		</pig>
+		<ok to="done" />
+		<error to="done" />
+	</action>
+
+	<action name='working' cred="hbase.cert">
+		<map-reduce>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${UROutput_tmp}" />
+			</prepare>
+
+			<configuration>
+				<property>
+					<name>mapred.mapper.class</name>
+					<value>org.apache.hadoop.mapred.lib.DelegatingMapper
+                                        </value>
+				</property>
+				<property>
+					<name>mapred.reducer.class</name>
+					<value>org.apache.avro.mapred.HadoopReducer</value>
+				</property>
+				<property>
+					<name>mapreduce.user.classpath.first</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapred.input.format.class</name>
+					<value>org.apache.hadoop.mapred.lib.DelegatingInputFormat</value>
+				</property>
+				<property>
+					<name>mapred.output.format.class</name>
+					<value>org.apache.avro.mapred.AvroOutputFormat</value>
+				</property>
+				<property>
+					<name>avro.map.output.is.reflect</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>avro.input.is.reflect</name>
+					<value>true</value>
+				</property>
+
+				<property>
+					<name>mapred.output.key.class</name>
+					<value>org.apache.avro.mapred.AvroWrapper</value>
+				</property>
+				<property>
+					<name>mapred.input.dir.mappers</name>
+					<value>${URInput};com.yahoo.miners.btmp.slingshotgrid.processing.fe.JsonURMapper,${wf:actionData('setProperty')['activity_input_mapper']}</value>
+				</property>
+				<property>
+					<name>mapred.input.dir.formats</name>
+					<value>${URInput};org.apache.hadoop.mapred.TextInputFormat,${wf:actionData('setProperty')['activity_input_format']}</value>
+				</property>
+				<property>
+					<name>projector.key.classname</name>
+					<value>com.yahoo.uda.fetl.WritableComparableList</value>
+				</property>
+				<property>
+					<name>projector.value.classname</name>
+					<value>com.yahoo.uda.fetl.WritableComparableList</value>
+				</property>
+				<property>
+					<name>sequence_projector.key_fields</name>
+					<value>bcookie,timestamp</value>
+				</property>
+				<property>
+					<name>sequence_projector.value_fields</name>
+					<value>type,bcookie,yuid,cookiejar,timestamp,src_pty,pageparams</value>
+				</property>
+				<property>
+					<name>slingshot.application.abf.projectionfields</name>
+					<value>type,bcookie,yuid,cookiejar,timestamp,src_pty,pageparams</value>
+				</property>
+				<property>
+					<name>mapred.mapoutput.key.class</name>
+					<value>org.apache.avro.mapred.AvroKey</value>
+				</property>
+				<property>
+					<name>io.serializations</name>
+					<value>org.apache.hadoop.io.serializer.WritableSerialization,org.apache.avro.mapred.AvroSerialization
+					</value>
+				</property>
+				<property>
+					<name>avro.reducer</name>
+					<value>com.yahoo.miners.btmp.slingshotgrid.processing.fe.FEReducer
+					</value>
+				</property>
+				<property>
+					<name>avro.mapper</name>
+					<value>com.yahoo.miners.btmp.slingshotgrid.processing.fe.FEAvroMap
+					</value>
+				</property>
+				<property>
+					<name>mapred.mapoutput.value.class</name>
+					<value>org.apache.avro.mapred.AvroValue</value>
+				</property>
+				<property>
+					<name>avro.output.schema</name>
+					<value>
+						${GSchema}
+					</value>
+				</property>
+				<property>
+					<name>avro.input.schema</name>
+					<value>
+						${GSchema}
+					</value>
+				</property>
+				<property>
+					<name>avro.map.output.schema</name>
+					<value>
+						${GSchema}
+					</value>
+				</property>
+				<property>
+					<name>mo.namedOutputs</name>
+					<value>text</value>
+				</property>
+				<property>
+					<name>mo.namedOutput.text.format</name>
+					<value>org.apache.hadoop.mapred.TextOutputFormat</value>
+				</property>
+				<property>
+					<name>mo.namedOutput.text.key</name>
+					<value>org.apache.hadoop.io.Text</value>
+				</property>
+				<property>
+					<name>mo.namedOutput.text.value</name>
+					<value>org.apache.hadoop.io.Text</value>
+				</property>
+				<property>
+					<name>mapred.output.key.class</name>
+					<value>org.apache.avro.mapred.AvroWrapper</value>
+				</property>
+				<!-- Parameter properties -shared between actions -->
+				<property>
+					<name>mapreduce.map.memory.mb</name>
+					<value>3584</value>
+				</property>
+                                <property>
+                                        <name>mapreduce.reduce.memory.mb</name>
+                                        <value>3584</value>
+                                </property>
+				<property>
+					<name>mapreduce.map.java.opts</name>
+					<value>-Xmx3072m -Xss1m</value>
+				</property>
+				<property>
+                                        <name>mapreduce.reduce.java.opts</name>
+                                        <value>-Xmx3072m -Xss1m</value>
+                                </property>
+                                <property>
+                                        <name>yarn.app.mapreduce.am.resource.mb</name>
+                                        <value>4096</value>
+                                </property>
+                                <property>
+                                        <name>yarn.app.mapreduce.am.command-opts</name>
+                                        <value>-Xmx3072m -XX:NewRatio=8 -Djava.net.preferIPv4Stack=true</value>
+                                </property>
+				<property>
+					<name>mapred.compress.map.output</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapred.speculative.execution</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapreduce.map.speculative</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapreduce.reduce.speculative</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapred.userlog.retain.hours</name>
+					<value>72</value>
+				</property>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>mapred.reduce.tasks</name>
+					<value>2000</value>
+				</property>
+				<property>
+					<name>mapred.map.max.attempts</name>
+					<value>5</value>
+				</property>
+				<property>
+					<name>mapred.tasktracker.expiry.interval</name>
+					<value>2400000</value>
+				</property>
+				<property>
+					<name>mapred.task.timeout</name>
+					<value>2400000</value>
+				</property>
+				<property>
+					<name>mapred.output.compress</name>
+					<value>false</value>
+				</property>
+				<property>
+					<name>mapred.output.compression.codec</name>
+					<value>org.apache.hadoop.io.compress.DefaultCodec</value>
+				</property>
+				<property>
+					<name>mapred.output.compression.type</name>
+					<value>BLOCK</value>
+				</property>
+				<property>
+					<name>mapred.compress.map.output</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapred.map.output.compression.type</name>
+					<value>RECORD</value>
+				</property>
+				<property>
+					<name>mapred.map.output.compression.codec</name>
+					<value>org.apache.hadoop.io.compress.DefaultCodec</value>
+				</property>
+				<property>
+					<name>mapred.partitioner.class</name>
+					<value>com.yahoo.miners.btmp.slingshotgrid.processing.fe.FieldIdPartitioner
+					</value>
+				</property>
+				<property>
+					<name>mapred.output.key.comparator.class</name>
+					<value>com.yahoo.miners.btmp.slingshotgrid.processing.fe.KeyComparator
+					</value>
+				</property>
+				<property>
+					<name>mapred.output.value.groupfn.class</name>
+					<value>com.yahoo.miners.btmp.slingshotgrid.processing.fe.KeyGroupingComparator
+					</value>
+				</property>
+
+				<!-- Parameter properties -specific to this action -->
+				<property>
+					<name>mapred.input.dir</name>
+					<value>${URInput},${wf:actionData('setProperty')['activity_input']}</value>
+				</property>
+				<property>
+					<name>mapred.output.dir</name>
+					<value>${UROutput_tmp}</value>
+				</property>
+				<property>
+					<name>slingshot.application.config.file</name>
+					<value>${appConfigFile}</value>
+				</property>
+			</configuration>
+			<file>${appDir}/${appConfigFile}</file>
+			<file>${appDir}/hbase-site.xml#hbase-site.xml</file>
+			<file>${Prob_Input}/part-r-00000#pplusj</file>
+			<file>${appDir}/SPPlugin.xml#SPPlugin.xml</file>
+		</map-reduce>
+		<ok to="move" />
+		<error to="email-fail" />
+	</action>
+	<action name='move'>
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${UROutput}" />
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>dfs.umaskmode</name>
+					<value>022</value>
+				</property>
+			</configuration>
+			<script>${appDir}/pig/fs.pig</script>
+			<param>dest=${UROutput}</param>
+			<param>source=${UROutput_tmp}</param>
+		</pig>
+		<ok to="transform" />
+		<error to="email-fail" />
+	</action>
+
+	<action name='transform'>
+		<map-reduce>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${UDS_FORMAT_UR_OUTPUT}" />
+			</prepare>
+
+			<configuration>
+				<property>
+					<name>mapreduce.map.class</name>
+					<value>com.yahoo.slingstone.userprofile.common.ur.hadoop.UR2UserProfileJob$Map
+					</value>
+				</property>
+				<property>
+					<name>mapreduce.reduce.class</name>
+					<value>com.yahoo.slingstone.userprofile.common.ur.hadoop.UR2UserProfileJob$Reduce
+					</value>
+				</property>
+				<property>
+					<name>mapreduce.map.speculative</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapreduce.reduce.speculative</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>mapred.reduce.tasks</name>
+					<value>100</value>
+				</property>
+				<property>
+					<name>mapred.map.max.attempts</name>
+					<value>5</value>
+				</property>
+				<property>
+					<name>mapred.input.dir</name>
+					<value>${UROutput}/text*</value>
+				</property>
+				<property>
+					<name>mapred.output.dir</name>
+					<value>${UDS_FORMAT_UR_OUTPUT}</value>
+				</property>
+				<property>
+					<name>mapred.reducer.new-api</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapred.mapper.new-api</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>mapreduce.user.classpath.first</name>
+					<value>true</value>
+				</property>
+				<property>
+					<name>transform.config.filename</name>
+					<value>${UPushConfigFile}</value>
+				</property>
+				<property>
+					<name>mapred.output.key.class</name>
+					<value>org.apache.hadoop.io.Text</value>
+				</property>
+				<property>
+					<name>mapred.output.value.class</name>
+					<value>org.apache.hadoop.io.Text</value>
+				</property>
+                <property>
+                    <name>dfs.umaskmode</name>
+                    <value>022</value>
+                </property>
+			</configuration>
+			<file>${appDir}/${UPushConfigFile}</file>
+		</map-reduce>
+		<ok to="post-transform" />
+		<error to="email-fail" />
+	</action>
+
+	<action name='post-transform'>
+		<java>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-modify-job</name>
+					<value>${acl_modify_job}</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.acl-view-job</name>
+					<value>${acl_view_job}</value>
+				</property>
+				<property>
+					<name>dfs.umaskmode</name>
+					<value>022</value>
+				</property>
+			</configuration>
+			<main-class>com.yahoo.slingstone.userprofile.common.util.CommandRunner
+			</main-class>
+			<arg>perl</arg>
+			<arg>prepare_upush.pl</arg>
+			<arg>-m ${PostTransforAction}</arg>
+			<arg>-i ${UDS_FORMAT_UR_OUTPUT}</arg>
+			<arg>-o ${UPushInput}</arg>
+			<arg>-c ${UPushCounterFile}</arg>
+			<arg>-e ${UPushExpireDays}</arg>
+			<file>${appDir}/prepare_upush.pl#prepare_upush.pl</file>
+		</java>
+		<ok to="done" />
+		<error to="email-fail" />
+	</action>
+
+    <action name="email-success">
+        <email xmlns="uri:oozie:email-action:0.1">
+            <to>${oozieEmailTo}</to>
+            <cc>${oozieEmailCC}</cc>
+            <subject>[Slingstone-UPP] ${time} Workflow Successfully Completed</subject>
+            <body>${time} workflow ${wf:id()} has successfully completed. You can also check the workflow's details at ${oozieServer}/?job=${wf:id()}.</body>
+        </email>
+        <ok to="end"/>
+        <error to="email-fail"/>
+    </action>
+
+    <action name="email-fail">
+        <email xmlns="uri:oozie:email-action:0.1">
+            <to>${oozieEmailTo}</to>
+            <cc>${oozieEmailCC}</cc>
+            <subject>[Slingstone-UPP] ${time} Workflow Failed, Attention Required</subject>
+            <body>${time} workflow ${wf:id()} has failed. Please check the workflow's details at ${oozieServer}/?job=${wf:id()}.</body>
+        </email>
+        <ok to="fail"/>
+        <error to="fail"/>
+    </action>
+
+	<kill name="fail">
+		<message>test fail : ERROR MSG -
+			[${wf:errorMessage(wf:lastErrorNode())}]
+		</message>
+	</kill>
+	<end name='end' />
+</workflow-app>

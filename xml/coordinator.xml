@@ -1,0 +1,178 @@
+<coordinator-app name="slingstone-upp-sp" frequency="${coord:hours(12)}"
+	start="${start}" end="${end}" timezone="UTC" xmlns="uri:oozie:coordinator:0.1">
+	<controls>
+		<timeout>20160</timeout>
+		<concurrency>1</concurrency>
+	</controls>
+
+	<datasets>
+		<dataset name="URInput" frequency="${coord:hours(12)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${ur_input}/${YEAR}${MONTH}${DAY}${HOUR}</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+		<dataset name="ActInput" frequency="${coord:hours(1)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${act_input}/${YEAR}${MONTH}${DAY}${HOUR}00
+			</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+		<dataset name="ActInput2" frequency="${coord:hours(1)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${act_input2}/${YEAR}${MONTH}${DAY}${HOUR}00
+			</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+		<dataset name="PreComputedProb" frequency="${coord:hours(12)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${prob_out_path}/${YEAR}${MONTH}${DAY}${HOUR}
+			</uri-template>
+		</dataset>
+		<dataset name="UROutput" frequency="${coord:hours(12)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${ur_output}/${YEAR}${MONTH}${DAY}${HOUR}
+			</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+		<dataset name="UROutput_tmp" frequency="${coord:hours(12)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${ur_output_tmp}/${YEAR}${MONTH}${DAY}${HOUR}
+			</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+		<dataset name="UDS_FORMAT_UR" frequency="${coord:hours(12)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${udf_format_ur_root}/${YEAR}${MONTH}${DAY}${HOUR}
+			</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+		<dataset name="time-ds" frequency="${coord:hours(12)}"
+			initial-instance="${ds_start}" timezone="UTC">
+			<uri-template>${YEAR}${MONTH}${DAY}${HOUR}</uri-template>
+			<done-flag>/</done-flag>
+		</dataset>
+	</datasets>
+
+	<input-events>
+		<data-in name="ur_input" dataset="URInput">
+			<instance>${coord:current(-1)}</instance>
+		</data-in>
+		<data-in name="act_input" dataset="ActInput">
+			<start-instance>${coord:current(-12)}</start-instance>
+			<end-instance>${coord:current(-1)}</end-instance>
+		</data-in>
+		<data-in name="act_input2" dataset="ActInput2">
+			<start-instance>${coord:current(-12)}</start-instance>
+			<end-instance>${coord:current(-1)}</end-instance>
+		</data-in>
+		<data-in name="prob_input" dataset="PreComputedProb">
+			<instance>${coord:current(-1)}</instance>
+		</data-in>
+	</input-events>
+
+	<output-events>
+		<data-out name="ur_output" dataset="UROutput">
+			<instance>${coord:current(0)}</instance>
+		</data-out>
+		<data-out name="ur_output_tmp" dataset="UROutput_tmp">
+			<instance>${coord:current(0)}</instance>
+		</data-out>
+		<data-out name="prob_output" dataset="PreComputedProb">
+			<instance>${coord:current(0)}</instance>
+		</data-out>
+		<data-out name="uds_format_ur_output" dataset="UDS_FORMAT_UR">
+			<instance>${coord:current(0)}</instance>
+		</data-out>
+		<data-out name="time-event" dataset="time-ds">
+			<instance>${coord:current(0)}</instance>
+		</data-out>
+	</output-events>
+
+	<action>
+		<workflow>
+			<app-path>${appDir}</app-path>
+			<configuration>
+				<property>
+					<name>appDir</name>
+					<value>${appDir}</value>
+				</property>
+				<property>
+					<name>jobTracker</name>
+					<value>${jobTracker}</value>
+				</property>
+				<property>
+					<name>nameNode</name>
+					<value>${nameNode}</value>
+				</property>
+				<property>
+					<name>queueName</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>URInput</name>
+					<value>${coord:dataIn('ur_input')}</value>
+				</property>
+				<property>
+					<name>ACTInput</name>
+					<value>${coord:dataIn('act_input')}</value>
+				</property>
+				<property>
+					<name>ACTInput2</name>
+					<value>${coord:dataIn('act_input2')}</value>
+				</property>
+				<property>
+					<name>configfile</name>
+					<value>${avroconfig}</value>
+				</property>
+				<property>
+					<name>UROutput</name>
+					<value>${coord:dataOut('ur_output')}</value>
+				</property>
+				<property>
+					<name>UROutput_tmp</name>
+					<value>${coord:dataOut('ur_output_tmp')}</value>
+				</property>
+				<property>
+					<name>UDS_FORMAT_UR_OUTPUT</name>
+					<value>${coord:dataOut('uds_format_ur_output')}</value>
+				</property>
+				<property>
+					<name>Prob_Input</name>
+					<value>${coord:dataIn('prob_input')}</value>
+				</property>
+				<property>
+					<name>Prob_Output</name>
+					<value>${coord:dataOut('prob_output')}</value>
+				</property>
+				<property>
+					<name>GSchema</name>
+					<value>${GenSchema}</value>
+				</property>
+				<property>
+					<name>TenantId</name>
+					<value>${UPLTtenant}</value>
+				</property>
+				<property>
+					<name>ExperimentId</name>
+					<value>${UPLTexperiment}</value>
+				</property>
+				<property>
+					<name>PartitionId</name>
+					<value>${UPLTpartition}</value>
+				</property>
+				<property>
+					<name>ModelParamKey</name>
+					<value>${UPLTsp_model_param_key}</value>
+				</property>
+				<property>
+					<name>Parallel</name>
+					<value>${UPLTparallel}</value>
+				</property>
+				<property>
+					<name>time</name>
+					<value>${coord:dataOut('time-event')}</value>
+				</property>
+			</configuration>
+		</workflow>
+	</action>
+</coordinator-app>

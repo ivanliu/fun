@@ -1,0 +1,4 @@
+#!/usr/local/bin/bash
+
+oozie-setup.pl -r share/oozie/app.yaml -y
+

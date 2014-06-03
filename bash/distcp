@@ -1,0 +1,40 @@
+#!/usr/local/bin/bash
+
+SRC_GRID=$1
+DES_GRID=$2
+SRC_PATH=$3
+DES_PATH=$4
+
+function get_name_node ()
+{
+  local grid_name="$1"
+
+  shopt -s nocasematch
+  
+  case "$grid_name" in
+      "PT" ) echo "phazontan-nn1.tan.ygrid.yahoo.com";;
+      "DR" ) echo "dilithiumred-nn1.red.ygrid.yahoo.com";;
+      "DB" ) echo "dilithiumblue-nn1.blue.ygrid.yahoo.com";;
+       * ) echo "unknown";;
+  esac
+  
+  shopt -u nocasematch
+
+}
+
+SRC_NAME_NODE=`get_name_node $SRC_GRID`
+DES_NAME_NODE=`get_name_node $DES_GRID`
+
+echo "Src name node: $SRC_NAME_NODE"
+echo "Des name node: $DES_NAME_NODE"
+echo "Src path: $SRC_PATH"
+echo "Des path: $DES_PATH"
+
+if [ "$SRC_NAME_NODE" == "unknown" ] || [ "$DES_NAME_NODE" == "unknown" ]; then 
+  echo "unknown grid name, please check"
+  exit
+fi
+
+hadoop distcp -Dmapred.job.queue.name=apg_dailyhigh_p3 -i -update hftp://$SRC_NAME_NODE:50070/$SRC_PATH  hdfs://$DES_NAME_NODE:8020/$DES_PATH 
+#hadoop distcp -Dmapred.job.queue.name=yamp_large -i -update hftp://$SRC_NAME_NODE:50070/$SRC_PATH  hdfs://$DES_NAME_NODE:8020/$DES_PATH 
+

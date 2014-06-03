@@ -1,0 +1,6 @@
+#!/usr/local/bin/bash
+
+coord_id=$1
+
+oozieclient.pl -r share/oozie/app.yaml job -info $coord_id
+
